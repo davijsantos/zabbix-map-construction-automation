@@ -1,0 +1,12 @@
+__pycache__/
+.vscode/
+.git
+output_samples/
+reference_files/
+data.json
+config.ini
+repair_mro.py
+teste.json
+teste2.json
+notes
+example_thiago_read.py

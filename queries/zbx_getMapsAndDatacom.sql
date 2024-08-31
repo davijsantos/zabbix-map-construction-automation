@@ -1,0 +1,39 @@
+SELECT DISTINCT
+    IF(length(h.HOST) = 7, concat(SUBSTR(h.HOST, 1, LENGTH(h.HOST) - 2),RIGHT(h.HOST,1)), SUBSTR(h.HOST, 1, LENGTH(h.HOST) - 1)) AS HOST,  /* Ex: Turn PTO-SE in PTO-S */
+    sm.NAME AS MAP_NAME,
+    CASE
+        WHEN sm.SYSMAPID IS NOT NULL THEN CONVERT(sm.SYSMAPID, CHAR)
+        ELSE sm.SYSMAPID
+    END AS SYSMAPID,
+    CONVERT(h.HOSTID, CHAR) AS DATACOM_HOSTID,
+    CONVERT(f.TRIGGERID, CHAR) AS DATACOM_PING_TRIGGER_ID,
+    CONCAT('10.93', SUBSTRING(hi.ip, 6)) AS BACKHAUL_IPV4,
+    CONCAT('10.94', SUBSTRING(hi.ip, 6)) AS HXAP_IPV4
+FROM
+    hosts h
+INNER JOIN
+    items i ON i.HOSTID = h.HOSTID
+INNER JOIN
+    functions f ON i.ITEMID = f.ITEMID
+INNER JOIN
+    triggers t ON ( f.TRIGGERID = t.TRIGGERID )
+INNER JOIN
+    hosts_groups hg ON h.HOSTID = hg.HOSTID
+INNER JOIN
+    hstgrp hgrp ON hg.GROUPID = hgrp.GROUPID
+INNER JOIN
+    interface hi ON hi.HOSTID = h.HOSTID
+LEFT JOIN
+    sysmaps sm ON sm.NAME LIKE CONCAT(h.HOST, ' (%')
+WHERE
+    hgrp.NAME IN ('.COPEL1/SUBSTATION GATEWAY', '.COPEL1/GE','.COPEL1/HEXING AP','.COPEL2/SUBSTATION GATEWAY', '.COPEL2/GE','.COPEL2/HEXING AP')
+    AND h.HOST REGEXP '^[A-Z]{3,3}-[A-Z]{2,2}[0-9]?$'
+    AND t.description = 'Substation Gateway - Unavailable by ICMP ping'
+    -- AND h.STATUS = 0
+    AND i.STATUS = 0
+    AND t.STATUS = 0
+    AND t.STATE = 0
+GROUP BY
+    h.NAME,
+    t.DESCRIPTION
+ORDER BY h.name ASC;

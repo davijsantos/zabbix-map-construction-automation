@@ -1,0 +1,50 @@
+SELECT
+    p.NAME as PERIPHERAL,
+    p.SERIAL,
+    pl.ENDEREOIPFIELD as IPV4,
+    pdm.NAME as DEVICEMODE,  /* store-and-forward, remote, access-point */
+    pte.NAME as EQUIPMENTTYPE /* GE-B2B, GE+AP, GE-B2B+AP, .etc */,
+    pt.NAME as DEVICETYPE,  /* ECR, MCR OR P70 */
+    pl.NOMEDOPRXIMOEQUIPAMENTOFIELD as NEXTDEVICE,
+    CASE
+        WHEN pnid.NAME LIKE '%-P7-%' THEN "510"
+        ELSE pnid.NAME
+    END AS NIC_ID,
+    pgwid.NAME as GATEWAY_ID,
+    pl.NOMEDAREDEFIELD as NETWORKNAME,
+    poi.NAME as INSTALLATIONORDER,
+    CASE
+        WHEN pl.BTWOBFIELD = '1' THEN "YES"
+        ELSE "NO"
+    END as B2B,
+    pl.IDBTWOBFIELD as IDBTWOB,
+    pl.IDAPFIELD as IDAP,
+    pl.IDDAFIELD as IDDA,
+    pse.NAME as SE,
+    psigla.NAME as SIGLASE,
+    p.entities_id as "entidade"
+FROM
+    glpi_peripherals as p
+LEFT JOIN
+    glpi_plugin_fields_peripheraldeviceconfigurations as pl ON pl.ITEMS_ID = p.ID
+LEFT JOIN
+    glpi_states as pstate ON pstate.ID = p.STATES_ID
+LEFT JOIN
+    glpi_plugin_fields_devicemodedropdownfielddropdowns as pdm ON pdm.ID = pl.PLUGIN_FIELDS_DEVICEMODEDROPDOWNFIELDDROPDOWNS_ID
+LEFT JOIN
+    glpi_plugin_fields_realdevicetypefielddropdowns as pte ON pte.ID = pl.PLUGIN_FIELDS_REALDEVICETYPEFIELDDROPDOWNS_ID
+LEFT JOIN
+    glpi_plugin_fields_devicetypedropdownfielddropdowns as pt ON pt.ID = pl.PLUGIN_FIELDS_DEVICETYPEDROPDOWNFIELDDROPDOWNS_ID
+LEFT JOIN
+    glpi_plugin_fields_niciddropdownfielddropdowns as pnid ON pnid.ID = pl.PLUGIN_FIELDS_NICIDDROPDOWNFIELDDROPDOWNS_ID
+LEFT JOIN
+    glpi_plugin_fields_gwiddropdownfielddropdowns as pgwid ON pgwid.ID = pl.PLUGIN_FIELDS_GWIDDROPDOWNFIELDDROPDOWNS_ID
+LEFT JOIN
+    glpi_plugin_fields_installationorderdropdownfielddropdowns as poi ON poi.ID = pl.PLUGIN_FIELDS_INSTALLATIONORDERDROPDOWNFIELDDROPDOWNS_ID
+LEFT JOIN
+    glpi_plugin_fields_siglasedropdownfielddropdowns as psigla ON psigla.ID = pl.PLUGIN_FIELDS_SIGLASEDROPDOWNFIELDDROPDOWNS_ID
+LEFT JOIN
+    glpi_plugin_fields_sedropdownfielddropdowns as pse ON pse.ID = pl.PLUGIN_FIELDS_SEDROPDOWNFIELDDROPDOWNS_ID
+WHERE
+    p.IS_DELETED != 1
+    AND p.PERIPHERALTYPES_ID = '1';

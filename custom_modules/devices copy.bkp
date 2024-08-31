@@ -1,0 +1,388 @@
+from pprint import pprint
+import re
+
+class CreateDevices:
+    def __init__(self, main):
+        self.main = main
+        self.config = self.main._data["config"]
+        self.ge = self.main._data["ge"]
+        self.hxap = self.main._data["hxap"]
+        
+        self.p70 = {}
+        self.datacomHXAP = {}
+        self.layers = {}
+        self.layer_count = 0
+        self.finalX = 0
+
+        self.is_first_layer = True
+    
+    def create_devices(self):
+        
+        # while len(self.ge) > 0:
+        layer = str(self.sum_layer_count())
+        _to_del = []
+        for  i, g in self.ge.items():
+            for k, v in g.items():
+                    if '-P7-' in i or g['glpi']["DEVICETYPE"] == "P70":
+                        self.p70[k] = g
+                        _to_del.append(k)
+                # if ('zabbix' in v and v["zabbix"]["GATEWAY_ID"] == "510") or '-P7-' in v["glpi"]["NEXTDEVICE"]: # first layer
+                #     try:
+                #         self.layers[layer][k] = v
+                #     except:
+                #         self.layers[layer] = {k: v}
+                #     _to_del.append(i)
+                    
+                    # try:
+                    #     if not self.is_first_layer and (
+                    #         ('zabbix' in v and v["zabbix"]["GATEWAY_ID"] == "510")
+                    #         and k in self.layers[str(int(layer) - 1)]
+                    #     ):
+                    #         print('\n\n\nhey\n\n\n')
+                    #         try:
+                    #             self.layers[layer][k] = v
+                    #         except:
+                    #             self.layers[layer] = {k: v}
+                    #         _to_del.append(i)
+                    # except:
+                    #     print(k, v)
+            
+            # self.is_first_layer = False
+                    
+                
+            # self._to_delete_from_dict(_to_del)
+        for k, v in self.hxap.items():
+            if v['glpi']["AP_DEVICE_MODE"] in ["SUBESTACAO", "TORRE"]:
+                self.datacomHXAP[k] = v
+                _to_del.append(k)
+                
+        
+        # print(self.datacomHXAP)
+        # print(self.layers)
+        # self.insert_layers()
+        self.insert_substation_hxap()
+        pixelUnderP70 = self.insert_P70()
+        self.insert_layers(pixelUnderP70)
+        return 
+    
+    def sum_layer_count(self):
+        self.layer_count += 1
+        return self.layer_count
+    
+    def _to_delete_from_dict(self, keys_to_delete):
+        for k in keys_to_delete:
+            del self.ge[0]
+
+        
+        return True
+    
+    def preparedataGE(self):
+        layers = {}
+        count = 0
+        for ge, data in self.ge.items():
+            try:
+                layers[data['glpi']['INSTALLATIONORDER']][data['glpi']['PERIPHERAL']] = {
+                    'idap':data['glpi']['IDAP'],
+                    'idda':data['glpi']['IDDA'],
+                    'networkname':data['glpi']['NETWORKNAME'],
+                    'devicemode':data['glpi']['DEVICEMODE'],
+                    'nextdevice':data['glpi']['NEXTDEVICE'],
+                    'hostid':data['zabbix']['HOSTID'],
+                    'description':data['zabbix']['DESCRIPTION'],
+                    'idbtwob':data['glpi']['IDBTWOB'],
+                    'element':None,
+                    'link':None,
+                    'drawn':False,
+                    'x':0,
+                    'y':0,
+                    'linkap':None
+                }
+            except KeyError:
+                layers[data['glpi']['INSTALLATIONORDER']] = {
+                    data['glpi']['PERIPHERAL']:{
+                        'idap':data['glpi']['IDAP'],
+                        'idda':data['glpi']['IDDA'],
+                        'networkname':data['glpi']['NETWORKNAME'],
+                        'devicemode':data['glpi']['DEVICEMODE'],
+                        'nextdevice':data['glpi']['NEXTDEVICE'],
+                        'hostid':data['zabbix']['HOSTID']
+                    }
+                }
+            # if count > 10:
+            #     break
+            # count+=1
+        print("1")
+        return layers
+    
+    def insert_P70(self):
+        for v in self.p70.values():
+            _x = "42"
+            _y = "325"
+            _hostid = v["zabbix"]["HOSTID"]
+            _host_description = v['zabbix']["DESCRIPTION"]
+            _trigger_id = v['zabbix']["PING_TRIGGER_ID"]
+            _device_mode = v['glpi']["DEVICEMODE"]
+            _selementid0 = self.insert_pixel("58", "498")
+            _selementid1 = self.insert_ge(_x, _y, _hostid, _host_description, _device_mode)
+            _selementid2 = self.insert_pixel("58", "298")
+            self.insert_link(_selementid1, _selementid2, _trigger_id)
+            self.insert_link(_selementid1, _selementid0,False)
+            _selementid3 = self.insert_pixel("721", "298")
+            self.insert_link(_selementid2, _selementid3, _trigger_id)
+            _selementid4 = self.insert_pixel("721", "175")
+            self.insert_link(_selementid3, _selementid4, _trigger_id)
+            break
+        pixelUnderP70 = {
+            'element': _selementid0,
+            'x': 58,
+            'y': 498
+        }
+        return pixelUnderP70
+    
+    def insert_substation_hxap(self):
+        for i, v in enumerate(self.datacomHXAP.values()):
+            _x = "878" if i == 0 else "731" # Check if is has 1 or 2 APs. i == 0 is xxx-x-A-001
+            _y = "308"
+            _hostid = v["zabbix"]["HOSTID"]
+            _host_description = v["zabbix"]["DESCRIPTION"]
+            _trigger_id = v["zabbix"]["PING_TRIGGER_ID"]
+            # _selementid1 = self.insert_hxap(_x, _y, _hostid, _host_description)
+            _selementid1 = self.insert_hxap(_x, _y, _hostid)
+            
+            pixel_x = "947" if i == 0 else "761" # Check if is has 1 or 2 APs. i == 0 is xxx-x-A-001
+            pixel_y = "337" if i == 0 else "175" # Check if is has 1 or 2 APs. i == 0 is xxx-x-A-001
+            _selementid2 = self.insert_pixel(pixel_x, pixel_y)
+            self.insert_link(_selementid1, _selementid2, _trigger_id)
+            
+            # Code (pixels and links) below is only for xxx-x-A-001
+            if i == 0:
+                _selementid3 = self.insert_pixel("947", "87")
+                self.insert_link(_selementid2, _selementid3, _trigger_id)
+                _selementid4 = self.insert_pixel("721", "87")
+                self.insert_link(_selementid3, _selementid4, _trigger_id)
+                _selementid5 = self.insert_pixel("721", "135")
+                self.insert_link(_selementid4, _selementid5, _trigger_id)
+    
+    def insert_first_ge():
+        pass
+    
+    def insert_layers(self,pixelUnderP70):
+        ges = self.preparedataGE()
+        self.insert_firstlayer(pixelUnderP70,ges)
+    
+    def insert_firstlayer(self,pixelUnderP70,ges):
+        currentInitialPoint = pixelUnderP70
+        self.finalX = int(currentInitialPoint['x'])
+        i=0
+        b2bxy = 0
+        aps = self.hxap
+        for k,v in ges['1'].items():
+            apAlreadyInserted = False
+            r = re.match("^[A-Z]{3,3}-[A-Z]-P7-", k)
+            if r:
+                continue
+            elif not v['drawn']:
+                _host_description = v['description']
+                
+                if i == 0:
+                    xPlusPoint = 42
+                else:
+                    xPlusPoint = 165
+            
+                
+                if v['devicemode'] != 'access-point':
+                    checkap = re.match("^[A-Z]{3,3}-[A-Z]-A-", v['idap'])
+                    checkb2b = re.match("^[A-Z]{3,3}-[A-Z]-GE-", v['idbtwob'])
+                    
+                    if checkb2b and checkap:
+                        _selementid2 = self.insert_hxap(str(int(int(currentInitialPoint['x']) + xPlusPoint*(5/4))), str(int(currentInitialPoint['y']) + 27 + 11), aps[v['idap']]['zabbix']['HOSTID'],"HXAP_SMALLICONS")
+                        currentInitialPoint['x'] = str(int(int(currentInitialPoint['x']) + xPlusPoint))
+                        apAlreadyInserted = True
+                    _selementid0 = self.insert_pixel(str(int(currentInitialPoint['x']) + xPlusPoint) , str(currentInitialPoint['y']))
+                    
+                    self.insert_link(currentInitialPoint['element'], _selementid0,False)
+                    _selementid1 = self.insert_ge(str(int(int(currentInitialPoint['x'])) + xPlusPoint - 16), str(int(currentInitialPoint['y']) + 27), v['hostid'], _host_description, v['devicemode'])
+                    self.insert_link(_selementid1, _selementid0,False)
+                    if apAlreadyInserted:
+                        self.insert_link(_selementid2, _selementid1,False)
+                        
+                    ges['1'][k]['x'] = int(currentInitialPoint['x']) + xPlusPoint - 16
+                    ges['1'][k]['y'] = int(currentInitialPoint['y']) + 27
+                    ges['1'][k]['element'] = _selementid1
+                    ges['1'][k]['drawn'] = True
+
+                    currentInitialPoint['element'] = _selementid0
+                    if checkap and not apAlreadyInserted:
+                        try:
+                            _selementid2 = self.insert_hxap(str(int(ges['1'][k]['x'] + xPlusPoint*(3/4))), str(int(ges['1'][k]['y']) + 11), aps[v['idap']]['zabbix']['HOSTID'],"HXAP_SMALLICONS")
+                            ges['1'][k]['linkap'] = self.insert_link(_selementid1, _selementid2,False)
+                            currentInitialPoint['x'] = str(int(int(currentInitialPoint['x']) + xPlusPoint*(3/4)))
+                        except KeyError:
+                            pass
+
+                    
+                    if checkb2b:
+                        try:
+                            # if ges['1'][v['idbtwob']]['element'] != None and ges['1'][v['idbtwob']]['link'] == None:
+                            #     ges['1'][v['idbtwob']]['link'] = self.insert_link(_selementid1, ges['1'][v['idbtwob']]['element'], False, "B2B")
+                            #     ges['1'][k]['link'] = ges['1'][v['idbtwob']]['link']
+                            #     currentInitialPoint['x'] = str(int(currentInitialPoint['x']) + xPlusPoint)
+                            # else:
+                            _selementid3 = self.insert_ge(str(int(ges['1'][k]['x']) + 165), str(ges['1'][k]['y']), ges['1'][v['idbtwob']]['hostid'], ges['1'][v['idbtwob']]['description'], ges['1'][v['idbtwob']]['devicemode'])
+                            ges['1'][ges['1'][k]['idbtwob']]['link'] = self.insert_link(_selementid1, _selementid3,False,"B2B")
+                            ges['1'][k]['link'] = ges['1'][v['idbtwob']]['link']
+                            ges['1'][v['idbtwob']]['x'] = int(ges['1'][k]['x']) + 165
+                            ges['1'][v['idbtwob']]['y'] = int(ges['1'][k]['y'])
+                            ges['1'][v['idbtwob']]['element'] = _selementid3
+                            ges['1'][v['idbtwob']]['drawn'] = True
+                            currentInitialPoint['x'] = str(int(currentInitialPoint['x']) + 2*xPlusPoint)
+                        except KeyError:
+                            pass
+                    else:
+                        currentInitialPoint['x'] = str(int(currentInitialPoint['x']) + xPlusPoint)
+                else:
+                    if ges['1'][v['idbtwob']]['drawn']:
+                        _selementid1 = self.insert_ge(str(int(ges['1'][v['idbtwob']]['x']) + xPlusPoint), str(int(currentInitialPoint['y']) + 27), v['hostid'], _host_description, v['devicemode'])
+                        ges['1'][v['idbtwob']]['link'] = self.insert_link(_selementid1, ges['1'][v['idbtwob']]['element'],False,"B2B")
+                        ges['1'][k]['link'] = ges['1'][v['idbtwob']]['link']
+                        ges['1'][k]['drawn'] = True
+                
+                self.finalX = currentInitialPoint['x']
+                if checkb2b:
+                    self.insert_filament(_selementid3,k,ges,self.finalX,currentInitialPoint['y'])
+                else:
+                    self.insert_filament(_selementid1,k,ges,self.finalX,currentInitialPoint['y'])
+            i+=1
+        
+    def insert_filament(self, fatherElement,fatherName,ges,finalX,finalY):
+        childrenGe = {}
+        onLayer = False
+        for k,v in ges.items():
+            if int(k) > 1:
+                for k2, v2 in v.items():
+                    if v2['nextdevice'] == fatherName:
+                        pass
+                if onLayer:
+                    break
+
+
+    def insert_ge(self, x, y, hostid, host_description, device_mode):
+        
+        self.main.selements.append({
+            "selementid": self.main.sum_selementid_count(),
+            "sysmapid": self.main.map_id,
+            "elementtype": "0",
+            "iconid_off": self.config["GE_ICONS"]["iconid_off"],
+            "iconid_on": self.config["GE_ICONS"]["iconid_on"],
+            "label": self.config["GE_ICONS"]["label"].replace('\\n', '\n').replace('\\r','\r') if device_mode != "access-point" else self.config["GE_ICONS"]["label_access_point"].replace('\\n','\n').replace('\\r','\r'),
+            "label_location": "-1",
+            "x": x,
+            "y": y,
+            "iconid_disabled": self.config["GE_ICONS"]["iconid_disabled"] if 'previous host' not in host_description else self.config["GE_ICONS"]["iconid_disabled_2"],
+            "iconid_maintenance": self.config["GE_ICONS"]["iconid_maintenance"],
+            "elementsubtype": "0",
+            "areatype": "0",
+            "width": self.config["GE_ICONS"]["width"],
+            "height": self.config["GE_ICONS"]["height"],
+            "viewtype": "0",
+            "use_iconmap": "0",
+            "application": "",
+            "elements": [{"hostid": hostid}] if hostid else [],
+            "urls": [],
+            "permission": 2
+        })
+    
+        return self.main.selementid_count
+    
+    def insert_hxap(self, x, y, hostid,type="HXAP_ICONS"):
+            
+        self.main.selements.append({
+            "selementid": self.main.sum_selementid_count(),
+            "sysmapid": self.main.map_id,
+            "elementtype": "0",
+            "iconid_off": self.config[type]["iconid_off"],
+            "iconid_on": self.config[type]["iconid_on"],
+            "label": self.config[type]["label"].replace('\\n', '\n').replace('\\r','\r'),
+            "label_location": "-1",
+            "x": x,
+            "y": y,
+            "iconid_disabled": self.config[type]["iconid_disabled"],
+            "iconid_maintenance": self.config[type]["iconid_maintenance"],
+            "elementsubtype": "0",
+            "areatype": "0",
+            "width": self.config[type]["width"],
+            "height": self.config[type]["height"],
+            "viewtype": "0",
+            "use_iconmap": "0",
+            "application": "",
+            "elements": [{"hostid": hostid}] if hostid else [],
+            "urls": [],
+            "permission": 2
+        })
+    
+        return self.main.selementid_count
+    
+    def insert_pixel(self, x, y):
+        self.main.selements.append({
+            "selementid": self.main.sum_selementid_count(),
+            "sysmapid": self.main.map_id,
+            "elementtype": "4",
+            "iconid_off": "2697",
+            "iconid_on": "0",
+            "label": "",
+            "label_location": "-1",
+            "x": x,
+            "y": y,
+            "iconid_disabled": "0",
+            "iconid_maintenance": "0",
+            "elementsubtype": "0",
+            "areatype": "0",
+            "width": "200",
+            "height": "200",
+            "viewtype": "0",
+            "use_iconmap": "0",
+            "application": "",
+            "elements": [],
+            "urls": [],
+            "permission": 2
+        })
+    
+        return self.main.selementid_count
+
+    def insert_link (self, selementid1, selementid2, trigger_id, label = ""):
+        
+        linkid = self.main.sum_linkid_count()
+        
+        if trigger_id:
+            linktriggers = [{
+                    "linktriggerid": self.main.sum_linktriggerid_count(),
+                    "linkid": linkid,
+                    "triggerid": trigger_id,
+                    "drawtype": "0",
+                    "color": "DD0000"
+                }]
+        else:
+            linktriggers = False
+        if linktriggers:
+            self.main.links.append({
+                "linkid": linkid,
+                "sysmapid": self.main.map_id,
+                "selementid1": selementid1,
+                "selementid2": selementid2,
+                "drawtype": "0",
+                "color": "00CC00",
+                "label": label,
+                "linktriggers": linktriggers,
+                "permission": 2
+            })
+        else:
+            self.main.links.append({
+                "linkid": linkid,
+                "sysmapid": self.main.map_id,
+                "selementid1": selementid1,
+                "selementid2": selementid2,
+                "drawtype": "0",
+                "color": "00CC00",
+                "label": label,
+                "permission": 2
+            })

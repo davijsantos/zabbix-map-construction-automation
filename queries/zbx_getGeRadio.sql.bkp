@@ -1,0 +1,317 @@
+WITH
+    /* Route*/
+    routeItemID AS (
+        SELECT
+            h.hostid AS hostid,
+            h.host AS host,
+            i.itemid AS itemid
+        FROM
+            items i
+        INNER JOIN
+            hosts h ON h.hostid = i.hostid
+        WHERE
+            i.key_ = 'ge.mon.routes.route'
+    ),
+
+    routeLastValue AS (
+        SELECT
+            i.hostid,
+            i.itemid AS itemid,
+            (
+                SELECT
+                    his2.value AS lastvalue
+                FROM
+                    history_text his2
+                WHERE
+                    his2.itemid = i.itemid
+                ORDER BY
+                    his2.clock DESC
+                LIMIT 1
+            ) AS lastvalue
+        FROM
+            routeItemID i 
+        GROUP BY
+            i.itemid
+    ),
+
+    /* Hops*/
+    hopsItemID AS (
+        SELECT
+            h.hostid AS hostid,
+            h.host AS host,
+            i.itemid AS itemid
+        FROM
+            items i
+        INNER JOIN
+            hosts h ON h.hostid = i.hostid
+        WHERE
+            i.key_ = 'ge.mon.routes.hops'
+    ),
+
+    hopsLastValue AS (
+        SELECT
+            i.hostid,
+            i.itemid AS itemid,
+            (
+                SELECT
+                    his2.value AS lastvalue
+                FROM
+                    history_uint his2
+                WHERE
+                    his2.itemid = i.itemid
+                ORDER BY
+                    his2.clock DESC
+                LIMIT 1
+            ) AS lastvalue
+        FROM
+            hopsItemID i 
+        GROUP BY
+            i.itemid
+    ),
+
+
+    /* Connected Radios */
+    connectedRadiosItemID AS (
+        SELECT
+            h.hostid AS hostid,
+            h.host AS host,
+            i.itemid AS itemid
+        FROM
+            items i
+        INNER JOIN
+            hosts h ON h.hostid = i.hostid
+        WHERE
+            i.key_ = 'ge.mon.routes.connected.radios'
+    ),
+
+    connectedRadiosLastValue AS (
+        SELECT
+            i.hostid,
+            i.itemid AS itemid,
+            (
+                SELECT
+                    his2.value AS lastvalue
+                FROM
+                    history_text his2
+                WHERE
+                    his2.itemid = i.itemid
+                ORDER BY
+                    his2.clock DESC
+                LIMIT 1
+            ) AS lastvalue
+        FROM
+            connectedRadiosItemID i 
+        GROUP BY
+            i.itemid
+    ),
+
+    /* NIC ID */
+    nicIdItemID AS (
+        SELECT
+            h.hostid AS hostid,
+            h.host AS host,
+            i.itemid AS itemid
+        FROM
+            items i
+        INNER JOIN
+            hosts h ON h.hostid = i.hostid
+        WHERE
+            i.key_ = 'ge.mon.nic.id'
+    ),
+
+    nicIdLastValue AS (
+        SELECT
+            i.hostid,
+            i.itemid AS itemid,
+            (
+                SELECT
+                    his2.value AS lastvalue
+                FROM
+                    history_uint his2
+                WHERE
+                    his2.itemid = i.itemid
+                ORDER BY
+                    his2.clock DESC
+                LIMIT 1
+            ) AS lastvalue
+        FROM
+            nicIdItemID i 
+        GROUP BY
+            i.itemid
+    ),
+
+
+    /* Gateway ID */
+    gatewayIdItemID AS (
+        SELECT
+            h.hostid AS hostid,
+            h.host AS host,
+            i.itemid AS itemid
+        FROM
+            items i
+        INNER JOIN
+            hosts h ON h.hostid = i.hostid
+        WHERE
+            i.key_ = 'ge.mon.gateway.id'
+    ),
+
+    gatewayIdLastValue AS (
+        SELECT
+            i.hostid,
+            i.itemid AS itemid,
+            (
+                SELECT
+                    his2.value AS lastvalue
+                FROM
+                    history_text his2
+                WHERE
+                    his2.itemid = i.itemid
+                ORDER BY
+                    his2.clock DESC
+                LIMIT 1
+            ) AS lastvalue
+        FROM
+            gatewayIdItemID i 
+        GROUP BY
+            i.hostid
+    ),
+
+
+    /* Network Name */
+    networkNameItemID AS (
+        SELECT
+            h.hostid AS hostid,
+            h.host AS host,
+            i.itemid AS itemid
+        FROM
+            items i
+        INNER JOIN
+            hosts h ON h.hostid = i.hostid
+        WHERE
+            i.key_ = 'ge.net.name'
+    ),
+
+    networkNameLastValue AS (
+        SELECT
+            i.hostid,
+            i.itemid AS itemid,
+            (
+                SELECT
+                    his2.value AS lastvalue
+                FROM
+                    history_text his2
+                WHERE
+                    his2.itemid = i.itemid
+                ORDER BY
+                    his2.clock DESC
+                LIMIT 1
+            ) AS lastvalue
+        FROM
+            networkNameItemID i 
+        GROUP BY
+            i.hostid
+    ),
+
+
+    /* Device Mode: access-point, store-and-forward or remote */
+    deviceModeItemID AS (
+        SELECT
+            h.hostid AS hostid,
+            h.host AS host,
+            i.itemid AS itemid
+        FROM
+            items i
+        INNER JOIN
+            hosts h ON h.hostid = i.hostid
+        WHERE
+            i.key_ = 'ge.device.mode'
+    ),
+
+    deviceModeLastValue AS (
+        SELECT
+            i.hostid,
+            i.itemid AS itemid,
+            (
+                SELECT
+                    his2.value AS lastvalue
+                FROM
+                    history_text his2
+                WHERE
+                    his2.itemid = i.itemid
+                ORDER BY
+                    his2.clock DESC
+                LIMIT 1
+            ) AS lastvalue
+        FROM
+            deviceModeItemID i 
+        GROUP BY
+            i.hostid
+    )
+
+
+SELECT DISTINCT
+    h.HOST,
+    h.NAME,
+    h.DESCRIPTION,
+    CONVERT(h.HOSTID, CHAR) AS HOSTID,
+    CONVERT(f.TRIGGERID, CHAR) AS PING_TRIGGER_ID,
+    iface.IP AS IPV4,
+    CASE
+        WHEN hinv.HOST_ROUTER NOT REGEXP '^[A-Z]{3,3}-' THEN NULL
+        ELSE hinv.HOST_ROUTER
+    END AS HOST_ROUTER,
+    r.LASTVALUE AS ROUTE,
+    CONVERT(hop.LASTVALUE, CHAR) AS HOPS,
+    CASE
+        WHEN cr.LASTVALUE NOT REGEXP '[0-9]' THEN NULL
+        ELSE cr.LASTVALUE
+    END AS CONNECTED_RADIOS,
+    CASE
+        WHEN h.NAME LIKE '%-P7-%' THEN "510"
+        ELSE n.LASTVALUE
+    END AS NIC_ID,
+    g.LASTVALUE AS GATEWAY_ID,
+    nn.LASTVALUE AS NETWORKNAME,
+    dm.LASTVALUE AS DEVICEMODE
+FROM
+    hosts h
+INNER JOIN
+    items i ON i.HOSTID = h.HOSTID
+INNER JOIN
+    functions f ON i.ITEMID = f.ITEMID
+INNER JOIN
+    triggers t ON ( f.TRIGGERID = t.TRIGGERID ) 
+INNER JOIN 
+    hosts_groups hg ON h.HOSTID = hg.HOSTID
+INNER JOIN
+    hstgrp hgrp ON hg.GROUPID = hgrp.GROUPID
+INNER JOIN
+    interface iface ON iface.HOSTID = h.HOSTID
+INNER JOIN
+    host_inventory hinv ON hinv.HOSTID = h.HOSTID
+LEFT JOIN
+    routeLastValue r ON h.HOSTID = r.HOSTID
+LEFT JOIN
+    hopsLastValue hop ON h.HOSTID = hop.HOSTID
+LEFT JOIN
+    connectedRadiosLastValue cr ON h.HOSTID = cr.HOSTID
+LEFT JOIN
+    nicIdLastValue n ON h.HOSTID = n.HOSTID
+LEFT JOIN
+    gatewayIdLastValue g ON h.HOSTID = g.HOSTID
+LEFT JOIN
+    networkNameLastValue nn ON h.HOSTID = nn.HOSTID
+LEFT JOIN
+    deviceModeLastValue dm ON h.HOSTID = dm.HOSTID
+WHERE
+    hgrp.NAME IN ('.COPEL1/GE','.COPEL2/GE')
+    AND t.expression = CONCAT('{', f.functionid, '}=0') /* Ex: {21039564:availability.status.last()}=0 */
+    /* AND h.HOST REGEXP '^[A-Z]{3,3}-[A-Z]-A-[0-9]{3,3}$'*/
+    /* AND h.STATUS = 0 */
+    /* AND i.STATUS = 0 */
+    /* AND t.STATUS = 0 */
+    /* AND t.STATE = 0 */
+GROUP BY
+    h.NAME
+ORDER BY
+    h.NAME ASC;
